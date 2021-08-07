@@ -1,0 +1,385 @@
+#!/bin/sh
+
+# Change this depending on battery in /sys/class/power_supply
+battery="BAT0";
+state_dir="${XDG_RUNTIME_DIR:-/tmp}"
+state_prefix="$state_dir/dwm-status-${USER:-$(id -u)}"
+cpu_state="$state_prefix.cpu"
+network_state="$state_prefix.network"
+
+battery() {
+	if [ -d /sys/class/power_supply/$battery ]
+	then
+		return 0
+	fi
+	return 1
+}
+
+battery_status() {
+	echo ""$(charging_status)" "$(charge)"%"
+}
+
+charging_status() {
+	cat "/sys/class/power_supply/$battery/status"
+}
+
+charge() {
+	cat "/sys/class/power_supply/$battery/capacity"
+}
+
+datetime() {
+	date +"%A %d W%V %B %Y | %_H:%M:%S %Z"
+}
+
+backlight() {
+	command backlight g 2>/dev/null
+}
+
+backlight_set() {
+	command backlight s "$1"
+	command xsetroot -name "$(status)"
+}
+
+backlight_increase() {
+	command backlight i
+	command xsetroot -name "$(status)"
+}
+
+backlight_decrease() {
+	command backlight d
+	command xsetroot -name "$(status)"
+}
+
+backlight_maximum() {
+	command backlight s 100%
+	command xsetroot -name "$(status)"
+}
+
+backlight_minimum() {
+	command backlight s 1%
+	command xsetroot -name "$(status)"
+}
+
+volume() {
+	command wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null |
+		awk '
+			{
+				for (i = 1; i <= NF; i++)
+					if ($i ~ /^0[.][0-9]+$/) {
+						printf "Volume: %.0f%%", $i * 100
+						for (j = 1; j <= NF; j++)
+							if ($j == "[MUTED]")
+								printf " muted"
+						printf "\n"
+						exit
+					}
+			}
+		'
+}
+
+volume_increase() {
+	command wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%+ 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+volume_decrease() {
+	command wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%- 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+volume_toggle() {
+	command wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+wifi() {
+	device="$(command iwctl device list 2>/dev/null |
+	awk '{
+		gsub(/\033\[[0-9;]*m/, "")
+		if ($5 == "station") {
+			print $1
+			exit
+		}
+	}')"
+	if [ -z "$device" ]
+	then
+		printf '%s' "WiFi: unavailable"
+		return
+	fi
+
+	info="$(command iwctl station "$device" show 2>/dev/null)"
+	state="$(printf '%s\n' "$info" |
+		awk '{
+			gsub(/\033\[[0-9;]*m/, "")
+		}
+		/^[[:space:]]*State[[:space:]]+/ {
+			sub(/^[[:space:]]*State[[:space:]]+/, "")
+			sub(/[[:space:]]+$/, "")
+			print
+			exit
+		}')"
+	if [ "$state" != "connected" ]
+	then
+		printf 'WiFi: %s' "${state:-disconnected}"
+		return
+	fi
+
+	network="$(printf '%s\n' "$info" |
+		awk '{
+			gsub(/\033\[[0-9;]*m/, "")
+		}
+		/^[[:space:]]*Connected network[[:space:]]+/ {
+			sub(/^[[:space:]]*Connected network[[:space:]]+/, "")
+			sub(/[[:space:]]+$/, "")
+			print
+			exit
+		}')"
+	rssi="$(printf '%s\n' "$info" |
+		awk '{
+			gsub(/\033\[[0-9;]*m/, "")
+		}
+		/^[[:space:]]*RSSI[[:space:]]+/ {
+			sub(/^[[:space:]]*RSSI[[:space:]]+/, "")
+			sub(/[[:space:]]+$/, "")
+			print
+			exit
+		}')"
+	printf 'WiFi: (%s) %s' "${network:-unknown}" "${rssi:-unknown}"
+}
+
+cpu_usage() {
+	now="$(date +%s)"
+	awk -v state="$cpu_state" '
+		BEGIN {
+			if ((getline line < state) > 0) {
+				split(line, previous)
+				oldtotal = previous[1]
+				oldidle = previous[2]
+			}
+		}
+		/^cpu / {
+			for (i = 2; i <= NF; i++)
+				total += $i
+			idle = $5 + $6
+		}
+		END {
+			usage = 0
+			if (oldtotal && total > oldtotal)
+				usage = (((total - oldtotal) - (idle - oldidle)) * 100) / \
+					(total - oldtotal)
+			printf "CPU: %.0f%%", usage
+			printf "%s %s\n", total, idle > state
+			close(state)
+		}
+	' /proc/stat
+}
+
+memory_usage() {
+	awk '
+		/^MemTotal:/ { total = $2 }
+		/^MemAvailable:/ { available = $2 }
+		END {
+			if (total)
+				printf "%.0f%%", (total - available) * 100 / total
+			else
+				printf "N/A"
+		}
+	' /proc/meminfo
+}
+
+gpu_usage() {
+	gpu_status=""
+
+	append_gpu() {
+		if [ -n "$gpu_status" ]
+		then
+			gpu_status="$gpu_status | "
+		fi
+		gpu_status="$gpu_status$1"
+	}
+
+	if command -v nvidia-smi >/dev/null 2>&1
+	then
+		nvidia_status="$(nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total \
+			--format=csv,noheader,nounits 2>/dev/null |
+			awk -F, '
+				{
+					gpu += $1
+					used += $2
+					total += $3
+					count++
+				}
+				END {
+					if (count && total)
+						printf "NVIDIA: %.0f%% [%.0f%%]", gpu / count, used * 100 / total
+				}
+			')"
+		if [ -n "$nvidia_status" ]
+		then
+			append_gpu "NVIDIA $nvidia_status"
+		fi
+	fi
+
+	intel_found=0
+	intel_reported=0
+	for device in /sys/class/drm/card[0-9]/device
+	do
+		if [ "$(cat "$device/vendor" 2>/dev/null)" = "0x8086" ]
+		then
+			intel_found=1
+		fi
+		if [ -r "$device/gpu_busy_percent" ]
+		then
+			busy="$(cat "$device/gpu_busy_percent")"
+			if [ -r "$device/mem_info_vram_used" ] &&
+				[ -r "$device/mem_info_vram_total" ]
+			then
+				used="$(cat "$device/mem_info_vram_used")"
+				total="$(cat "$device/mem_info_vram_total")"
+				intel_status="$(awk -v busy="$busy" -v used="$used" -v total="$total" \
+					'BEGIN {
+						if (total)
+							printf "GPU: %.0f%% [%.0f%%]", busy, used * 100 / total
+						else
+							printf "GPU: %.0f%% [N/A]", busy
+					}')"
+				append_gpu "$intel_status"
+			else
+				append_gpu "GPU: $busy% [shared]"
+			fi
+			intel_reported=1
+		fi
+	done
+
+	if [ "$intel_found" -eq 1 ] && [ "$intel_reported" -eq 0 ] &&
+		command -v intel_gpu_top >/dev/null 2>&1
+	then
+		busy="$(command intel_gpu_top -l -s 100 -n 2 2>/dev/null |
+			awk '
+				/Render\/3D/ {
+					for (i = 1; i <= NF; i++)
+						if ($i ~ /^[0-9]+([.][0-9]+)?%$/) {
+							value = $i
+							sub(/%$/, "", value)
+						}
+				}
+				END {
+					if (value != "")
+						print value
+				}
+			')"
+		if [ -n "$busy" ]
+		then
+			append_gpu "GPU: $busy% [shared]"
+		else
+			append_gpu "GPU: N/A [shared]"
+		fi
+		intel_reported=1
+	fi
+
+	if [ "$intel_found" -eq 1 ] && [ "$intel_reported" -eq 0 ]
+	then
+		append_gpu "GPU: N/A [shared]"
+	fi
+
+	if [ -z "$gpu_status" ]
+	then
+		gpu_status="GPU: N/A [N/A]"
+	fi
+	printf '%s' "$gpu_status"
+}
+
+network_rate() {
+	now="$(date +%s)"
+	awk -v state="$network_state" -v now="$now" '
+		BEGIN {
+			if ((getline line < state) > 0) {
+				split(line, previous)
+				oldrx = previous[1]
+				oldtx = previous[2]
+				oldtime = previous[3]
+			}
+		}
+		$1 !~ /^(Inter-|face|lo:)/ {
+			rx += $2
+			tx += $10
+		}
+		function rate(bytes) {
+			if (bytes >= 1048576)
+				return sprintf("%.1f MiB/s", bytes / 1048576)
+			if (bytes >= 1024)
+				return sprintf("%.1f KiB/s", bytes / 1024)
+			return sprintf("%.0f B/s", bytes)
+		}
+		END {
+			seconds = now - oldtime
+			if (seconds > 0) {
+				download = (rx - oldrx) / seconds
+				upload = (tx - oldtx) / seconds
+			} else {
+				download = 0
+				upload = 0
+			}
+			printf "Up %s Down %s", rate(upload), rate(download)
+			printf "%s %s %s\n", rx, tx, now > state
+			close(state)
+		}
+	' /proc/net/dev
+}
+
+daemon() {
+	while true
+	do
+		command xsetroot -name "$(status)"
+		sleep 1
+	done
+}
+
+status() {
+	battery_status=""
+	if battery
+	then
+		battery_status="$(battery_status)"
+	fi
+	echo "$(network_rate) | $(wifi) | $(gpu_usage) | $(cpu_usage) [$(memory_usage)] | $(volume) | $(backlight) | ${battery_status} | $(datetime)"
+}
+
+if [ "$#" -eq 0 ]; then
+    echo "Usage: $0 [volume [--increase|--decrease|--toggle|--show] | [backlight [--increase|--decrease|--maximum|--minimum|--set|--show] | --daemon | --show]"
+    exit 1
+fi
+
+case "$1" in
+	volume)
+		shift
+		case "$1" in
+			--increase)
+				volume_increase;;
+			--decrease)
+				volume_decrease;;
+			--toggle)
+				volume_toggle;;
+			--show)
+				echo "$(volume)";;
+		esac;;
+	backlight)
+		shift
+		case "$1" in
+			--increase)
+				backlight_increase;;
+			--decrease)
+				backlight_decrease;;
+			--maximum)
+				backlight_maximum;;
+			--minimum)
+				backlight_minimum;;
+			--set)
+				backlight_set "$2";;
+			--show)
+				echo "$(backlight)";;
+		esac;;
+	--daemon)
+		daemon;;
+	--show)
+		status;;
+esac
