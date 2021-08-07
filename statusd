@@ -1,0 +1,10 @@
+#!/bin/sh
+
+PIPE=/tmp/status.fifo
+[ -p "$PIPE" ] || mkfifo "$PIPE"
+
+while true
+do
+	status
+	sleep 1s
+done > "$PIPE"
