@@ -1,0 +1,133 @@
+#!/bin/sh
+
+# Change this depending on battery in /sys/class/power_supply
+battery="BAT0";
+
+battery() {
+	if [ -d /sys/class/power_supply/$battery ]
+	then
+		return 0
+	fi
+	return 1
+}
+
+battery_status() {
+	echo ""$(charging_status)" "$(charge)"%"
+}
+
+charging_status() {
+	cat "/sys/class/power_supply/$battery/status"
+}
+
+charge() {
+	cat "/sys/class/power_supply/$battery/capacity"
+}
+
+datetime() {
+	date +"%A %d W%V %B %Y | %_H:%M:%S %Z"
+}
+
+backlight() {
+	command backlight g 2>/dev/null
+}
+
+backlight_set() {
+	command backlight s "$1"
+	command xsetroot -name "$(status)"
+}
+
+backlight_increase() {
+	command backlight i
+	command xsetroot -name "$(status)"
+}
+
+backlight_decrease() {
+	command backlight d
+	command xsetroot -name "$(status)"
+}
+
+backlight_maximum() {
+	command backlight s 100
+	command xsetroot -name "$(status)"
+}
+
+backlight_minimum() {
+	command backlight s 1
+	command xsetroot -name "$(status)"
+}
+
+volume() {
+	command wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null
+}
+
+volume_increase() {
+	command wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%+ 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+volume_decrease() {
+	command wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%- 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+volume_toggle() {
+	command wpctl set-mute @DEFAULT_AUDION_SINK@ toggle 2>/dev/null
+	command xsetroot -name "$(status)"
+}
+
+daemon() {
+	while true
+	do
+		command xsetroot -name "$(status)"
+		sleep 1
+	done
+}
+
+status() {
+	battery_status=""
+	if $(battery)
+	then
+		battery_status="$(battery_status)"
+	fi
+	echo "$(volume) | $(backlight) | ${battery_status} | $(datetime)"
+}
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: $0 [volume [--increase|--decrease|--toggle|--show] | --daemon | --show]"
+    exit 1
+fi
+
+case "$1" in
+	volume)
+		shift
+		case "$1" in
+			--increase)
+				$(volume_increase);;
+			--decrease)
+				$(volume_decrease);;
+			--toggle)
+				$(volume_toggle);;
+			--show)
+				echo "$(volume)";;
+		esac;;
+	backlight)
+		shift
+		case "$1" in
+			--increase)
+				$(backlight_increase);;
+			--decrease)
+				$(backlight_decrease);;
+			--maximum)
+				$(backlight_maximum);;
+			--minimum)
+				$(backlight_minimum);;
+			--set)
+				$(backlight_set "$2");;
+			--show)
+				echo "$(backlight)";;
+		esac;;
+	--daemon)
+		$(daemon);;
+	--show)
+		echo $(status);;
+esac
