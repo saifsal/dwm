@@ -1,0 +1,20 @@
+file=$(
+    /usr/bin/find "$HOME" \
+        \( -type d \( \
+            -name '.*' \
+            -o -name lutris \
+            -o -name node_modules \
+            -o -name __pycache__ \
+            -o -name Obj \
+            -o -name Bin \
+            -o -name obj \
+            -o -name bin \
+            -o -name target \
+            -o -name dist \
+            -o -name build \
+        \) -prune \) -o \
+        \( -type f -print \) 2>/dev/null |
+    /usr/local/bin/dmenu -i -l 20 -p "Open file:"
+)
+
+[ -n "$file" ] && /usr/bin/brave "$file"
