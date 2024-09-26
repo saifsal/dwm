@@ -2,21 +2,20 @@
 
 #include <X11/XF86keysym.h>
 
-static const char *upvol[] = {"amixer", "-q", "sset", "Master", "3%+", NULL};
-static const char *downvol[] = {"amixer", "-q", "sset", "Master", "3%-", NULL};
-static const char *mutevol[] = {"amixer", "-q",     "sset",
-                                "Master", "toggle", NULL};
+static const char *upvol[] = {"pamixer", "--increase", "1", NULL};
+static const char *downvol[] = {"pamixer", "--decrease", "1", NULL};
+static const char *mutevol[] = {"pamixer", "--toggle-mute", NULL};
 
-static const char *uplight[] = {"backlight", "i", "5", NULL};
-static const char *downlight[] = {"backlight", "d", "5", NULL};
+static const char *uplight[] = {"backlight", "i", "1", NULL};
+static const char *downlight[] = {"backlight", "d", "1", NULL};
 
 /* appearance */
 static const unsigned int borderpx = 1; /* border pixel of windows */
 static const unsigned int snap = 32;    /* snap pixel */
 static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
-static const char *fonts[] = {"Hasklug Nerd Font:size=9"};
-static const char dmenufont[] = "Hasklug Nerd Font:size=9";
+static const char *fonts[] = {"Cozette:size=9"};
+static const char dmenufont[] = "Cozette:size=9";
 static const char col_gray1[] = "#222222";
 static const char col_gray2[] = "#444444";
 static const char col_gray3[] = "#bbbbbb";
@@ -56,7 +55,7 @@ static const Layout layouts[] = {
 };
 
 /* key definitions */
-#define MODKEY Mod4Mask
+#define MODKEY Mod1Mask
 #define TAGKEYS(KEY, TAG)                                                      \
   {MODKEY, KEY, view, {.ui = 1 << TAG}},                                       \
       {MODKEY | ControlMask, KEY, toggleview, {.ui = 1 << TAG}},               \
@@ -107,11 +106,11 @@ static Key keys[] = {
     TAGKEYS(XK_1, 0) TAGKEYS(XK_2, 1) TAGKEYS(XK_3, 2) TAGKEYS(XK_4, 3)
         TAGKEYS(XK_5, 4) TAGKEYS(XK_6, 5) TAGKEYS(XK_7, 6) TAGKEYS(XK_8, 7)
             TAGKEYS(XK_9, 8){MODKEY | ShiftMask, XK_q, quit, {0}},
-    {MODKEY, XK_F11, spawn, {.v = downvol}},
-    {MODKEY, XK_F10, spawn, {.v = mutevol}},
-    {MODKEY, XK_F12, spawn, {.v = upvol}},
-    {MODKEY, XK_F5, spawn, {.v = downlight}},
-    {MODKEY, XK_F6, spawn, {.v = uplight}},
+    {MODKEY, XK_z, spawn, {.v = mutevol}},
+    {MODKEY, XK_a, spawn, {.v = downvol}},
+    {MODKEY, XK_s, spawn, {.v = upvol}},
+    {MODKEY, XK_y, spawn, {.v = downlight}},
+    {MODKEY, XK_u, spawn, {.v = uplight}},
 };
 
 /* button definitions */
