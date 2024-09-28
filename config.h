@@ -2,9 +2,9 @@
 
 #include <X11/XF86keysym.h>
 
-static const char *upvol[] = {"pamixer", "--increase", "1", NULL};
-static const char *downvol[] = {"pamixer", "--decrease", "1", NULL};
-static const char *mutevol[] = {"pamixer", "--toggle-mute", NULL};
+static const char *upvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%+", NULL};
+static const char *downvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%-", NULL};
+static const char *mutevol[] = {"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle", NULL};
 
 static const char *uplight[] = {"backlight", "i", "1", NULL};
 static const char *downlight[] = {"backlight", "d", "1", NULL};
