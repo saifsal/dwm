@@ -2,9 +2,12 @@
 
 #include <X11/XF86keysym.h>
 
-static const char *upvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%+", NULL};
-static const char *downvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "1%-", NULL};
-static const char *mutevol[] = {"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle", NULL};
+static const char *upvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@",
+                              "1%+", NULL};
+static const char *downvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@",
+                                "1%-", NULL};
+static const char *mutevol[] = {"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@",
+                                "toggle", NULL};
 
 static const char *uplight[] = {"backlight", "i", "1", NULL};
 static const char *downlight[] = {"backlight", "d", "1", NULL};
@@ -20,7 +23,7 @@ static const char col_gray1[] = "#222222";
 static const char col_gray2[] = "#444444";
 static const char col_gray3[] = "#bbbbbb";
 static const char col_gray4[] = "#eeeeee";
-static const char col_cyan[]  = "#404d99";
+static const char col_cyan[] = "#404d99";
 static const char *colors[][3] = {
     /*               fg         bg         border   */
     [SchemeNorm] = {col_gray3, col_gray1, col_gray2},
