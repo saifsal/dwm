@@ -1,13 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
-#include <X11/XF86keysym.h>
-
-static const char *upvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@",
-                              "1%+", NULL};
-static const char *downvol[] = {"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@",
-                                "1%-", NULL};
-static const char *mutevol[] = {"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@",
-                                "toggle", NULL};
+static const char *upvol[] = {"dwmvolume", "i", NULL};
+static const char *downvol[] = {"dwmvolume", "d", NULL};
+static const char *mutevol[] = {"dwmvolume", "m", NULL};
 
 static const char *uplight[] = {"backlight", "i", "1", NULL};
 static const char *downlight[] = {"backlight", "d", "1", NULL};
@@ -23,7 +18,7 @@ static const char col_gray1[] = "#222222";
 static const char col_gray2[] = "#444444";
 static const char col_gray3[] = "#bbbbbb";
 static const char col_gray4[] = "#eeeeee";
-static const char col_cyan[] = "#404d99";
+static const char col_cyan[] = "#005577";
 static const char *colors[][3] = {
     /*               fg         bg         border   */
     [SchemeNorm] = {col_gray3, col_gray1, col_gray2},
@@ -44,10 +39,12 @@ static const Rule rules[] = {
 };
 
 /* layout(s) */
-static const float mfact = 0.5; /* factor of master area size [0.05..0.95] */
-static const int nmaster = 1;   /* number of clients in master area */
+static const float mfact = 0.55; /* factor of master area size [0.05..0.95] */
+static const int nmaster = 1;    /* number of clients in master area */
 static const int resizehints =
     1; /* 1 means respect size hints in tiled resizals */
+static const int lockfullscreen =
+    1; /* 1 will force focus on the fullscreen window */
 
 #include "fibonacci.c"
 static const Layout layouts[] = {
@@ -78,9 +75,9 @@ static const char *dmenucmd[] = {
     "dmenu_run", "-m",      dmenumon, "-fn",    dmenufont, "-nb",     col_gray1,
     "-nf",       col_gray3, "-sb",    col_cyan, "-sf",     col_gray4, NULL};
 static const char *termcmd[] = {"st", NULL};
-static const char *browsercmd[] = {"brave", "--incognito", NULL};
+static const char *browsercmd[] = {"brave", NULL};
 
-static Key keys[] = {
+static const Key keys[] = {
     /* modifier                     key        function        argument */
     {MODKEY, XK_p, spawn, {.v = dmenucmd}},
     {MODKEY, XK_Return, spawn, {.v = termcmd}},
@@ -121,9 +118,8 @@ static Key keys[] = {
 /* button definitions */
 /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
  * ClkClientWin, or ClkRootWin */
-static Button buttons[] = {
-    /* click                event mask      button          function argument
-     */
+static const Button buttons[] = {
+    /* click                event mask      button          function argument */
     {ClkLtSymbol, 0, Button1, setlayout, {0}},
     {ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[2]}},
     {ClkWinTitle, 0, Button2, zoom, {0}},
