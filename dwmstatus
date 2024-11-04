@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# Change this depending on battery in /sys/class/power_supply
+battery="BAT0";
+
+has_battery() {
+	if [ -d /sys/class/power_supply/$battery ]; then
+		return 0;
+	fi
+	return 1;
+}
+
+get_battery_status() {
+	charge="$(get_charge)"
+	icon="$(get_charging_status)"
+	echo ""$icon" "$charge"%"
+}
+
+get_charging_status() {
+	cat "/sys/class/power_supply/$battery/status"
+}
+
+get_charge() {
+	cat "/sys/class/power_supply/$battery/capacity"
+}
+
+get_datetime() {
+	date +"%A %d W%V %B %Y | %_H:%M:%S %Z"
+}
+
+get_volume() {
+	wpctl get-volume @DEFAULT_AUDIO_SINK@
+}
+
+get_status() {
+	battery_status="";
+	if $(has_battery); then
+		battery_status="$(get_battery_status)";
+	fi
+	echo "$(get_volume) | ${battery_status} | $(get_datetime)";
+}
+
+xsetroot -name "$(get_status)";
