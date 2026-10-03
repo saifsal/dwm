@@ -93,7 +93,7 @@ status() {
 }
 
 if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 [volume [--increase|--decrease|--toggle|--show] | --daemon | --show]"
+    echo "Usage: $0 [volume [--increase|--decrease|--toggle|--show] | [backlight [--increase|--decrease|--maximum|--minimum|--set|--show] | --daemon | --show]"
     exit 1
 fi
 
